@@ -73,11 +73,13 @@ namespace Heron.Utilities.Google3DTiles
         private const int NodeVisitBudget = 80000;
         private const double LeafSizeRelaxFactor = 1.15;
 
+        /*
         // AOI metrics (meters) for size heuristic - computed from ECEF bounds
         private readonly double _aoiWidthMeters;
         private readonly double _aoiHeightMeters;
         private readonly double _targetLeafWidthMeters;
         private readonly double _targetLeafHeightMeters;
+        */
 
         // Stats
         public TilesetTraversalStats Stats { get; private set; } = new TilesetTraversalStats();
@@ -88,10 +90,9 @@ namespace Heron.Utilities.Google3DTiles
             _maxLod = Math.Max(0, maxLod);
             _relaxAoiMeters = relaxAoiMeters < 0 ? 0 : relaxAoiMeters;
 
-            // Convert AOI to densified ECEF polygon once
+            // Convert AOI to ECEF polygon once
             try
             {
-                //_aoiEcef = GeoUtils.AoiToEcefDensified(aoiModel);
                 _aoiEcef = GeoUtils.AoiToWgsGdal(aoiModel);
             }
             catch (Exception ex)
@@ -108,8 +109,6 @@ namespace Heron.Utilities.Google3DTiles
             _aoiEcefMax = _aoiEcef[2]; // Upper right
             _aoiEcefRadius = _aoiEcefCenter.DistanceTo(_aoiEcefMax);
 
-
-
             // Expanded bounds if relaxing
             if (_relaxAoiMeters > 0)
             {
@@ -124,8 +123,10 @@ namespace Heron.Utilities.Google3DTiles
                 _aoiEcefRadiusExpanded = _aoiEcefRadius;
             }
 
+            // Translate the AOI to an ECEF oriented box for disjoint test
             _aoiEcefBox = GetAoiEcefBox(_aoiEcefCenter, _aoiEcefMinExpanded, _aoiEcefMaxExpanded);
 
+            /*
             // Approximate AOI size in meters for size heuristics
             var diagonal = _aoiEcefMax - _aoiEcefMin;
             _aoiWidthMeters = Math.Max(diagonal.X, diagonal.Y); // Rough approximation
@@ -134,6 +135,7 @@ namespace Heron.Utilities.Google3DTiles
             double denom = Math.Pow(2.0, _maxLod <= 0 ? 1 : _maxLod);
             _targetLeafWidthMeters = (_aoiWidthMeters / denom);
             _targetLeafHeightMeters = (_aoiHeightMeters / denom);
+            */
         }
 
         public List<PlannedTile> PlanDownloads(Tileset root)
@@ -197,7 +199,9 @@ namespace Heron.Utilities.Google3DTiles
 
                 // Leaf logic: only treat as leaf if no children OR reached max LOD and geometry is directly available (GLB)
                 bool treatAsLeaf = (!hasChildren) || (reachedLod && isGlbContent);
-
+                
+                /*
+                ///IS THIS NECESSARY?
                 // Region size heuristic to early-stop descent (avoid if only JSON available)
                 if (!treatAsLeaf && TryRegionSizeMeters(node.BoundingVolume, out double regionWidthM, out double regionHeightM))
                 {
@@ -209,6 +213,7 @@ namespace Heron.Utilities.Google3DTiles
                         stats.LeafHeuristicStops++;
                     }
                 }
+                */
 
                 if (treatAsLeaf)
                 {
@@ -335,7 +340,8 @@ namespace Heron.Utilities.Google3DTiles
             // Handle different BV types, all staying in ECEF
             if (bv.Box != null && bv.Box.Length >= 12)
             {
-                return IntersectsObbEcefBox(bv.Box);
+                var bvBox = GetEcefBox(bv.Box);
+                return IntersectsObbAoiEcefBox(bvBox);
             }
             if (bv.Sphere != null && bv.Sphere.Length >= 4)
             {
@@ -371,15 +377,15 @@ namespace Heron.Utilities.Google3DTiles
         {
             var latLonHeightCenter = GeoUtils.EcefToWgs84Gdal(aoiEcefCenter);
 
-            /// Create plane for box
+            // Create plane for box
             var ecefPlaneXAxis = GeoUtils.Wgs84ToEcefGdal(latLonHeightCenter.lonDeg, latLonHeightCenter.latDeg + 1, latLonHeightCenter.h);
             var ecefPlaneYAxis = GeoUtils.Wgs84ToEcefGdal(latLonHeightCenter.lonDeg + 1, latLonHeightCenter.latDeg, latLonHeightCenter.h);
             var ecefPlane = new Plane(aoiEcefCenter, ecefPlaneXAxis, ecefPlaneYAxis);
             
             var ecefBox = new Box(ecefPlane, new List<Point3d>() { _aoiEcefMinExpanded, _aoiEcefMaxExpanded } );
 
-            /// Inflate increments in model units. 
-            /// Set Z to 10,000 meters. Mt. Everest is 8,849 meters.
+            // Inflate increments in model units. 
+            // Set Z to 10,000 meters. Mt. Everest is 8,849 meters.
             var activeDoc = RhinoDoc.ActiveDoc;
             if (activeDoc == null)
                 throw new Exception("Active Rhino document required for EarthAnchorPoint conversion.");
@@ -389,10 +395,8 @@ namespace Heron.Utilities.Google3DTiles
             
             return ecefBox;
         }
-        private bool IntersectsObbEcefBox(double[] box)
+        private bool IntersectsObbAoiEcefBox(Box obbBox)
         {
-            var obbBox = GetEcefBox(box);
-
             // 1. Get the 3 primary axes for both boxes
             var axesA = new[] { _aoiEcefBox.Plane.XAxis, _aoiEcefBox.Plane.YAxis, _aoiEcefBox.Plane.ZAxis };
             var axesB = new[] { obbBox.Plane.XAxis, obbBox.Plane.YAxis, obbBox.Plane.ZAxis };
@@ -422,6 +426,7 @@ namespace Heron.Utilities.Google3DTiles
 
 
             /*
+            // Full 3D SAT implementation for OBB-OBB intersection
             // --- Phase 1 & 2: Check the 6 primary axes ---
             foreach (var axis in axesA.Concat(axesB)) // Concat axes from both boxes
             {
@@ -491,33 +496,29 @@ namespace Heron.Utilities.Google3DTiles
         private bool IntersectsRegionEcef(double[] region)
         {
             if (region.Length < 6) return false;
-            double west = GeoUtils.RadToDeg(region[0]);
-            double south = GeoUtils.RadToDeg(region[1]);
-            double east = GeoUtils.RadToDeg(region[2]);
-            double north = GeoUtils.RadToDeg(region[3]);
+            double west = RhinoMath.ToDegrees(region[0]);
+            double south = RhinoMath.ToDegrees(region[1]);
+            double east = RhinoMath.ToDegrees(region[2]);
+            double north = RhinoMath.ToDegrees(region[3]);
             double minHeight = region[4];
             double maxHeight = region[5];
-            var corners = new Point3d[8];
-            corners[0] = GeoUtils.Wgs84ToEcefGdal(west, south, minHeight);
-            corners[1] = GeoUtils.Wgs84ToEcefGdal(east, south, minHeight);
-            corners[2] = GeoUtils.Wgs84ToEcefGdal(east, north, minHeight);
-            corners[3] = GeoUtils.Wgs84ToEcefGdal(west, north, minHeight);
-            corners[4] = GeoUtils.Wgs84ToEcefGdal(west, south, maxHeight);
-            corners[5] = GeoUtils.Wgs84ToEcefGdal(east, south, maxHeight);
-            corners[6] = GeoUtils.Wgs84ToEcefGdal(east, north, maxHeight);
-            corners[7] = GeoUtils.Wgs84ToEcefGdal(west, north, maxHeight);
-            var regionMin = corners[0];
-            var regionMax = corners[0];
-            foreach (var corner in corners)
-            {
-                if (corner.X < regionMin.X) regionMin = new Point3d(corner.X, regionMin.Y, regionMin.Z);
-                if (corner.Y < regionMin.Y) regionMin = new Point3d(regionMin.X, corner.Y, regionMin.Z);
-                if (corner.Z < regionMin.Z) regionMin = new Point3d(regionMin.X, regionMin.Y, corner.Z);
-                if (corner.X > regionMax.X) regionMax = new Point3d(corner.X, regionMax.Y, regionMax.Z);
-                if (corner.Y > regionMax.Y) regionMax = new Point3d(regionMax.X, corner.Y, regionMax.Z);
-                if (corner.Z > regionMax.Z) regionMax = new Point3d(regionMax.X, regionMax.Y, corner.Z);
-            }
-            return !GeoUtils.IsAabbDisjoint(_aoiEcefMinExpanded, _aoiEcefMaxExpanded, regionMin, regionMax);
+
+            // Create an ECEF Box from west, south, east, north, minHeight and maxHeight
+            var minPoint = GeoUtils.Wgs84ToEcefGdal(west, south, minHeight);
+            var maxPoint = GeoUtils.Wgs84ToEcefGdal(east, north, maxHeight);
+            var regionEcefCenter = new Point3d(
+                (minPoint.X + maxPoint.X) / 2,
+                (minPoint.Y + maxPoint.Y) / 2,
+                (minPoint.Z + maxPoint.Z) / 2);
+            var regionEcefPlane = new Plane(regionEcefCenter,
+                GeoUtils.Wgs84ToEcefGdal(west, south + 1, minHeight),
+                GeoUtils.Wgs84ToEcefGdal(west + 1, south, minHeight));
+            var regionEcefBox = new Box(regionEcefPlane,
+                new Interval(-Math.Abs(maxPoint.X - minPoint.X) / 2, Math.Abs(maxPoint.X - minPoint.X) / 2),
+                new Interval(-Math.Abs(maxPoint.Y - minPoint.Y) / 2, Math.Abs(maxPoint.Y - minPoint.Y) / 2),
+                new Interval(-Math.Abs(maxPoint.Z - minPoint.Z) / 2, Math.Abs(maxPoint.Z - minPoint.Z) / 2));
+
+            return IntersectsObbAoiEcefBox(regionEcefBox);
         }
 
         #endregion
@@ -534,17 +535,16 @@ namespace Heron.Utilities.Google3DTiles
             catch { return uri.IndexOf(".glb", System.StringComparison.OrdinalIgnoreCase) >= 0; }
         }
         private static string StripQuery(string uri) { int q = uri.IndexOf('?'); return q >= 0 ? uri.Substring(0, q) : uri; }
-        private static double DegToRad(double d) { return d * Math.PI / 180.0; }
 
         private bool TryRegionSizeMeters(BoundingVolume bv, out double widthM, out double heightM)
         {
             widthM = heightM = 0;
             if (bv?.Region == null || bv.Region.Length < 4) return false;
-            double west = GeoUtils.RadToDeg(bv.Region[0]);
-            double south = GeoUtils.RadToDeg(bv.Region[1]);
-            double east = GeoUtils.RadToDeg(bv.Region[2]);
-            double north = GeoUtils.RadToDeg(bv.Region[3]);
-            double midLatRad = DegToRad((south + north) * 0.5);
+            double west = RhinoMath.ToDegrees(bv.Region[0]);
+            double south = RhinoMath.ToDegrees(bv.Region[1]);
+            double east = RhinoMath.ToDegrees(bv.Region[2]);
+            double north = RhinoMath.ToDegrees(bv.Region[3]);
+            double midLatRad = RhinoMath.ToRadians((south + north) * 0.5);
             const double metersPerDegLat = 111320.0;
             double metersPerDegLon = metersPerDegLat * Math.Cos(midLatRad);
             double dLon = Math.Max(0, east - west);

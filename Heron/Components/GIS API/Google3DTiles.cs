@@ -134,8 +134,9 @@ namespace Heron
         {
             var doc = RhinoDoc.ActiveDoc;
             double modelTol = doc != null ? doc.ModelAbsoluteTolerance : 0.01;
+
+            // Set up GDAL/OGR
             Heron.GdalConfiguration.ConfigureGdal();
-            Heron.GdalConfiguration.ConfigureOgr();
 
             Curve boundary = null;
             int maxLod = 4;
@@ -198,7 +199,6 @@ namespace Heron
             if (!Directory.Exists(cacheFolder)) Directory.CreateDirectory(cacheFolder);
 
             // Create AOI polyline *before* computing manifest metrics to ensure consistency
-            //var aoi = boundary.ToPolyline(0, 0, 0.1, 0.1).ToPolyline();
             var aoi = GeoUtils.GetAoiBoundingPolyline(boundary);
 
             if (aoi == null || !aoi.IsClosed)
@@ -213,8 +213,8 @@ namespace Heron
             double minLon = 0, minLat = 0, maxLon = 0, maxLat = 0;
             try
             {
-                var wgs = GeoUtils.AoiToWgs(aoi);
-                minLon = wgs.minLon; minLat = wgs.minLat; maxLon = wgs.maxLon; maxLat = wgs.maxLat;
+                var wgs = GeoUtils.AoiToWgsGdal(aoi);
+                minLon = wgs.Min().X; minLat = wgs.Min().Y; maxLon = wgs.Max().X; maxLat = wgs.Max().Y;
             }
             catch (Exception exWgsBounds)
             {
