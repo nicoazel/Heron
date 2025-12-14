@@ -62,7 +62,7 @@ namespace Heron.Utilities.Google3DTiles
             {
                 temp = RhinoDoc.CreateHeadless(null);
                 temp.ModelUnitSystem = UnitSystem.Meters; // Imported GLBs assumed in meters (ECEF meters)
-
+                
                 foreach (var fp in glbFiles)
                 {
                     if (string.IsNullOrWhiteSpace(fp) || !File.Exists(fp))
@@ -133,25 +133,27 @@ namespace Heron.Utilities.Google3DTiles
                             if (ro != null) temp.Objects.Delete(ro, true);
                             continue;
                         }
-
+                        
                         var dup = m.DuplicateMesh();
                         if (dup == null)
                         {
                             if (ro != null) temp.Objects.Delete(ro, true);
                             continue;
                         }
-
+                        
                         // Per-vertex ECEF -> WGS84 -> Model conversion.
                         // Assumptions: Source vertices are in ECEF meters (standard for Google Photorealistic 3D Tiles after glTF import).
                         var verts = dup.Vertices;
                         for (int i = 0; i < verts.Count; i++)
                         {
                             var ecef = verts.Point3dAt(i);
-                            var w = GeoUtils.EcefToGeoidGdal(ecef); // (lonDeg, latDeg, hMeters)
+                            //var w = GeoUtils.EcefToGeoidGdal(ecef); // (lonDeg, latDeg, hMeters)
                             // Height: convert meters to model units BEFORE using WGSToXYZ transform (which expects elevation in model units).
-                            var geo = new Point3d(w.lonDeg, w.latDeg, w.h * metersToModel);
-                            geo.Transform(wgsToModel); // Now in model coordinates
-                            verts.SetVertex(i, geo);
+                            //var geo = new Point3d(w.lonDeg, w.latDeg, w.h * metersToModel);
+                            //geo.Transform(wgsToModel); // Now in model coordinates
+
+                            var tp = GeoUtils.EcefToModelPoint(ecef);
+                            verts.SetVertex(i, tp);
                         }
 
                         dup.Unweld(Rhino.RhinoMath.ToRadians(10), false); // Unweld for cleaner looking meshes
@@ -163,6 +165,7 @@ namespace Heron.Utilities.Google3DTiles
                         try
                         {
                             var rmat = ro.RenderMaterial;
+
                             if (rmat != null)
                             {
                                 try
@@ -203,7 +206,9 @@ namespace Heron.Utilities.Google3DTiles
                         catch { }
 
                         if (ro != null)
+                        {
                             temp.Objects.Delete(ro, true);
+                        }
                     }
 
                     // Clear objects after processing each file
@@ -215,6 +220,11 @@ namespace Heron.Utilities.Google3DTiles
                 // Explicit cleanup and disposal
                 if (temp != null)
                 {
+                    // Rhino creates a subfolder in \AppData\Local\McNeel\Rhinoceros\8.0\UnpackedFiles
+                    // with texture maps when importing the glb files into the temp Rhino file.
+                    // Delete this folder so unpacked files don't accumulate.
+                    var tempUnpackFolder = Rhino.Render.Utilities.GetUnpackedFilesCacheFolder(temp, false);
+
                     try
                     {
                         temp.Objects.Clear();
@@ -222,6 +232,8 @@ namespace Heron.Utilities.Google3DTiles
                     }
                     catch { }
                     temp = null;
+
+                    if (Directory.Exists(tempUnpackFolder)) Directory.Delete(tempUnpackFolder, true);
                 }
 
                 // Force garbage collection to free memory

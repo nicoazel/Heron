@@ -138,6 +138,9 @@ namespace Heron
             // Set up GDAL/OGR
             Heron.GdalConfiguration.ConfigureGdal();
 
+            // Make sure global HeronSRS is being used.
+            GeoUtils.SetSpatialReferences();
+
             Curve boundary = null;
             int maxLod = 4;
             string cacheFolder = null;
@@ -213,8 +216,8 @@ namespace Heron
             double minLon = 0, minLat = 0, maxLon = 0, maxLat = 0;
             try
             {
-                var wgs = GeoUtils.AoiToWgsGdal(aoi);
-                minLon = wgs.Min().X; minLat = wgs.Min().Y; maxLon = wgs.Max().X; maxLat = wgs.Max().Y;
+                var wgs = GeoUtils.AoiToWgs(aoi);
+                minLon = wgs.minLon; minLat = wgs.minLat; maxLon = wgs.maxLon; maxLat = wgs.maxLat;
             }
             catch (Exception exWgsBounds)
             {
@@ -406,7 +409,7 @@ namespace Heron
                 var meshes = new List<Mesh>();
                 List<Grasshopper.Kernel.Types.GH_Material> mats = new List<Grasshopper.Kernel.Types.GH_Material>();
                 HashSet<string> glbCopyrights = new HashSet<string>();
-                
+
                 if (localGlbs.Count > 0)
                 {
                     var importMeshes = TileImporter.ImportMeshesOriented(localGlbs, out mats, out var importNotes, out glbCopyrights);

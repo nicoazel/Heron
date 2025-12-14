@@ -72,14 +72,14 @@ namespace Heron.Utilities.Google3DTiles
         private const int JsonFetchBudget = 4000;
         private const int NodeVisitBudget = 80000;
         private const double LeafSizeRelaxFactor = 1.15;
-
-        /*
+        
+        
         // AOI metrics (meters) for size heuristic - computed from ECEF bounds
         private readonly double _aoiWidthMeters;
         private readonly double _aoiHeightMeters;
         private readonly double _targetLeafWidthMeters;
         private readonly double _targetLeafHeightMeters;
-        */
+        
 
         // Stats
         public TilesetTraversalStats Stats { get; private set; } = new TilesetTraversalStats();
@@ -93,7 +93,7 @@ namespace Heron.Utilities.Google3DTiles
             // Convert AOI to ECEF polygon once
             try
             {
-                _aoiEcef = GeoUtils.AoiToWgsGdal(aoiModel);
+                _aoiEcef = GeoUtils.AoiToEcefGdal(aoiModel);
             }
             catch (Exception ex)
             {
@@ -126,7 +126,7 @@ namespace Heron.Utilities.Google3DTiles
             // Translate the AOI to an ECEF oriented box for disjoint test
             _aoiEcefBox = GetAoiEcefBox(_aoiEcefCenter, _aoiEcefMinExpanded, _aoiEcefMaxExpanded);
 
-            /*
+            ///Is this necessary?
             // Approximate AOI size in meters for size heuristics
             var diagonal = _aoiEcefMax - _aoiEcefMin;
             _aoiWidthMeters = Math.Max(diagonal.X, diagonal.Y); // Rough approximation
@@ -135,7 +135,7 @@ namespace Heron.Utilities.Google3DTiles
             double denom = Math.Pow(2.0, _maxLod <= 0 ? 1 : _maxLod);
             _targetLeafWidthMeters = (_aoiWidthMeters / denom);
             _targetLeafHeightMeters = (_aoiHeightMeters / denom);
-            */
+            
         }
 
         public List<PlannedTile> PlanDownloads(Tileset root)
@@ -200,7 +200,7 @@ namespace Heron.Utilities.Google3DTiles
                 // Leaf logic: only treat as leaf if no children OR reached max LOD and geometry is directly available (GLB)
                 bool treatAsLeaf = (!hasChildren) || (reachedLod && isGlbContent);
                 
-                /*
+                
                 ///IS THIS NECESSARY?
                 // Region size heuristic to early-stop descent (avoid if only JSON available)
                 if (!treatAsLeaf && TryRegionSizeMeters(node.BoundingVolume, out double regionWidthM, out double regionHeightM))
@@ -212,8 +212,7 @@ namespace Heron.Utilities.Google3DTiles
                         treatAsLeaf = true;
                         stats.LeafHeuristicStops++;
                     }
-                }
-                */
+                }              
 
                 if (treatAsLeaf)
                 {
@@ -391,7 +390,7 @@ namespace Heron.Utilities.Google3DTiles
                 throw new Exception("Active Rhino document required for EarthAnchorPoint conversion.");
             double unitScaleModelToMeters = Rhino.RhinoMath.UnitScale(activeDoc.ModelUnitSystem, UnitSystem.Meters);
 
-            ecefBox.Inflate(0,0,10000 * unitScaleModelToMeters); 
+            ecefBox.Inflate(0,0,10000 / unitScaleModelToMeters); 
             
             return ecefBox;
         }
