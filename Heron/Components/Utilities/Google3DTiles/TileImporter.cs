@@ -133,27 +133,27 @@ namespace Heron.Utilities.Google3DTiles
                             if (ro != null) temp.Objects.Delete(ro, true);
                             continue;
                         }
-                        
+
                         var dup = m.DuplicateMesh();
+
                         if (dup == null)
                         {
                             if (ro != null) temp.Objects.Delete(ro, true);
                             continue;
                         }
-                        
+
+                        // Bake texture mapping to vertexes before transformation
+                        var tm = ro.GetTextureMapping(1);
+                        if (tm != null) dup.SetTextureCoordinates(tm, Transform.Identity, false);
+
                         // Per-vertex ECEF -> WGS84 -> Model conversion.
                         // Assumptions: Source vertices are in ECEF meters (standard for Google Photorealistic 3D Tiles after glTF import).
                         var verts = dup.Vertices;
                         for (int i = 0; i < verts.Count; i++)
                         {
                             var ecef = verts.Point3dAt(i);
-                            //var w = GeoUtils.EcefToGeoidGdal(ecef); // (lonDeg, latDeg, hMeters)
-                            // Height: convert meters to model units BEFORE using WGSToXYZ transform (which expects elevation in model units).
-                            //var geo = new Point3d(w.lonDeg, w.latDeg, w.h * metersToModel);
-                            //geo.Transform(wgsToModel); // Now in model coordinates
-
-                            var tp = GeoUtils.EcefToModelPoint(ecef);
-                            verts.SetVertex(i, tp);
+                            var modelPoint = GeoUtils.EcefToModelPoint(ecef);
+                            verts.SetVertex(i, modelPoint);
                         }
 
                         dup.Unweld(Rhino.RhinoMath.ToRadians(10), false); // Unweld for cleaner looking meshes
@@ -165,13 +165,19 @@ namespace Heron.Utilities.Google3DTiles
                         try
                         {
                             var rmat = ro.RenderMaterial;
-
+                            //var mat = ro.GetMaterial(true);
+                            
                             if (rmat != null)
                             {
                                 try
                                 {
                                     // Rename material to indicate Google 3D Tile source and group them together in the material list
                                     rmat.Name = "G3DTile-" + baseName + "_" + incrementMaterialName;
+
+                                    // Rename diffuse texture to match material name
+                                    var diffuseTexture = rmat.GetTextureFromUsage(Rhino.Render.RenderMaterial.StandardChildSlots.Diffuse);
+                                    diffuseTexture.Name = rmat.Name;
+
                                     incrementMaterialName++;
 
                                     // Ensure metallic is zero for typical photorealistic textures
@@ -179,7 +185,7 @@ namespace Heron.Utilities.Google3DTiles
 
                                     // Copy the unpacked diffuse bitmap into the same directory as the GLB file,
                                     // renaming it to match the GLB base name while preserving the image extension.
-                                    var diffuseTexture = rmat.GetTextureFromUsage(Rhino.Render.RenderMaterial.StandardChildSlots.Diffuse);
+
                                     var diffuseBitmapUnpacked = diffuseTexture.Filename;
                                     if (!string.IsNullOrWhiteSpace(diffuseBitmapUnpacked) && File.Exists(diffuseBitmapUnpacked))
                                     {
@@ -202,6 +208,8 @@ namespace Heron.Utilities.Google3DTiles
                                 catch { }
                                 ghMaterials.Add(new GH_Material(rmat));
                             }
+                            // Material cleanup, may not be necessary
+                            rmat.Dispose();
                         }
                         catch { }
 
