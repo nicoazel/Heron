@@ -54,76 +54,88 @@ namespace Heron
         {
             var info = new List<string>();
 
-            Heron.GdalConfiguration.ConfigureGdal();
-            Heron.GdalConfiguration.ConfigureOgr();
-
-            string gdalVersion = Gdal.VersionInfo("");
-            info.Add("Gdal Version: " + gdalVersion);
-
-            //string heronVersion = Assembly.GetExecutingAssembly().GetName().Version.ToString();
             info.Add("Heron Version: " + HeronVersion.AssemblyFileVer);
-            //string executingAssemblyFileMac = new Uri(Assembly.GetExecutingAssembly().GetName().CodeBase).LocalPath;
 
-
-            //string executingDirectory = Path.GetDirectoryName(executingAssemblyFileMac);
             string executingDirectory = HeronLocation.GetHeronFolder();
             info.Add("Heron Location: " + executingDirectory);
 
-            string osxPlatform = "";
-            var arch = RuntimeInformation.ProcessArchitecture;
-            var isOSX = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
-            if (arch == Architecture.X64 && isOSX == true) { osxPlatform = "osx-64"; }
-            if (arch == Architecture.Arm64 && isOSX == true) { osxPlatform = "osx-Arm64"; }
-
-            string gdalPath = Path.Combine(executingDirectory, "gdal");
-            string nativePath = Path.Combine(gdalPath, osxPlatform);
-
-            //info.Add("Gdal Path: " + gdalPath);
-            //info.Add(nativePath);
-
-            string envGdalDriverPath = Environment.GetEnvironmentVariable("GDAL_DRIVER_PATH");
-            //info.Add("GDAL Driver Path: " + envGdalDriverPath);
-
-            ///Add Gdal driver info
-            Gdal.AllRegister();
-            var driverCount = Gdal.GetDriverCount();
-            List<string> gdrivers = new List<string>();
-            info.Add("----------");
-            info.Add("GDAL drivers (" + driverCount + "):");
-
-            for (int drv = 0; drv < Gdal.GetDriverCount(); drv++)
+            try
             {
-                gdrivers.Add(Gdal.GetDriver(drv).ShortName + " (" + Gdal.GetDriver(drv).LongName + ")");
-            }
-            gdrivers.Sort();
-            info.AddRange(gdrivers);
+                Heron.GdalConfiguration.ConfigureGdal();
+                Heron.GdalConfiguration.ConfigureOgr();
 
-            ///Add Ogr driver info
-            Ogr.RegisterAll();
-            var ogrDriverCount = Ogr.GetDriverCount();
-            List<string> odrivers = new List<string>();
-            info.Add("----------");
-            info.Add("OGR drivers (" + ogrDriverCount + ") :");
-            for (int odrv = 0; odrv < Ogr.GetDriverCount(); odrv++)
+                string gdalVersion = Gdal.VersionInfo("");
+                info.Add("Gdal Version: " + gdalVersion);
+
+                var process = Process.GetCurrentProcess();
+                var modules = process.Modules;
+                foreach (ProcessModule module in modules)
+                {
+                    if (module.ModuleName.StartsWith("gdal") || module.ModuleName.StartsWith("ogr") || module.ModuleName.StartsWith("osr") || module.ModuleName.StartsWith("proj"))
+                    {
+                        //info.Add(module.ModuleName + " : " + module.FileVersionInfo.FileVersion + " : " + module.FileName);
+                    }
+                }
+
+                string osxPlatform = "";
+                var arch = RuntimeInformation.ProcessArchitecture;
+                var isOSX = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+                if (arch == Architecture.X64 && isOSX == true) { osxPlatform = "osx-64"; }
+                if (arch == Architecture.Arm64 && isOSX == true) { osxPlatform = "osx-Arm64"; }
+
+                string gdalPath = Path.Combine(executingDirectory, "gdal");
+                string nativePath = Path.Combine(gdalPath, osxPlatform);
+
+                //info.Add("Gdal Path: " + gdalPath);
+                //info.Add(nativePath);
+
+                string envGdalDriverPath = Environment.GetEnvironmentVariable("GDAL_DRIVER_PATH");
+                //info.Add("GDAL Driver Path: " + envGdalDriverPath);
+
+                ///Add Gdal driver info
+                Gdal.AllRegister();
+                var driverCount = Gdal.GetDriverCount();
+                List<string> gdrivers = new List<string>();
+                info.Add("----------");
+                info.Add("GDAL drivers (" + driverCount + "):");
+
+                for (int drv = 0; drv < Gdal.GetDriverCount(); drv++)
+                {
+                    gdrivers.Add(Gdal.GetDriver(drv).ShortName + " (" + Gdal.GetDriver(drv).LongName + ")");
+                }
+                gdrivers.Sort();
+                info.AddRange(gdrivers);
+
+                ///Add Ogr driver info
+                Ogr.RegisterAll();
+                var ogrDriverCount = Ogr.GetDriverCount();
+                List<string> odrivers = new List<string>();
+                info.Add("----------");
+                info.Add("OGR drivers (" + ogrDriverCount + ") :");
+                for (int odrv = 0; odrv < Ogr.GetDriverCount(); odrv++)
+                {
+                    odrivers.Add(Ogr.GetDriver(odrv).GetName());
+                }
+                odrivers.Sort();
+                info.AddRange(odrivers);
+
+                ///Get Environment Variables for troublshooting
+                var d = Environment.GetEnvironmentVariables();
+                List<string> ks = Environment.GetEnvironmentVariables().Keys.OfType<string>().ToList();
+                ks.Sort();
+                //info.Add("----------");
+                //info.Add("Environment Variables:");
+                foreach (var key in ks)
+                {
+                    string k = key;
+                    string v = (string)d[key];
+                    //info.Add(k + " : " + v);
+                }
+            }
+            catch (Exception ex)
             {
-                odrivers.Add(Ogr.GetDriver(odrv).GetName());
+                info.Add("Error getting GDAL DLL versions: " + ex.Message);
             }
-            odrivers.Sort();
-            info.AddRange(odrivers);
-
-            ///Get Environment Variables for troublshooting
-            var d = Environment.GetEnvironmentVariables();
-            List<string> ks = Environment.GetEnvironmentVariables().Keys.OfType<string>().ToList();
-            ks.Sort();
-            //info.Add("----------");
-            //info.Add("Environment Variables:");
-            foreach (var key in ks)
-            {
-                string k = key;
-                string v = (string)d[key];
-                //info.Add(k + " : " + v);
-            }
-
 
             DA.SetDataList(0, info);
         }
