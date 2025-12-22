@@ -18,7 +18,7 @@ using OSGeo.OSR; // Manifest serialization
 
 namespace Heron
 {
-    public class Google3DTiles : HeronComponent
+    public class Google3DTilesAoi : HeronComponent
     {
         // Progress tracking
         private bool isDownloading = false;
@@ -32,10 +32,10 @@ namespace Heron
 
         private const string ManifestPrefix = "manifest_"; // manifest_{hash}.json
 
-        public Google3DTiles()
-          : base("Google 3D Tiles (Photorealistic)",
-                 "G3DTiles",
-                 "Download + cache Google Photorealistic 3D Tiles for a boundary and import as meshes aligned to EarthAnchorPoint.",
+        public Google3DTilesAoi()
+          : base("Google 3D Tiles AOI (Photorealistic)",
+                 "G3DTilesAoi",
+                 "Download + cache Google Photorealistic 3D Tiles for a boundary (Area of Interest) and import as meshes aligned to EarthAnchorPoint.",
                  "GIS API")
         { }
 
