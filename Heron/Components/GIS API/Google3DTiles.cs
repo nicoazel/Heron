@@ -67,7 +67,7 @@ namespace Heron
             p.AddCurveParameter("Boundary", "B", "Boundary (planar) in model coordinates (use Heron to place by lat/lon).", GH_ParamAccess.item);
             p.AddIntegerParameter("Zoom", "lod", "0 to 20 20 = max Level of Detail.", GH_ParamAccess.item, 4);
             p.AddTextParameter("Cache Folder", "Fp", "Folder path to store tile cache (.glb files).", GH_ParamAccess.item, defaultCacheFolder);
-            p.AddTextParameter("API Key", "K", "Google Maps Platform API key.", GH_ParamAccess.item);
+            p.AddTextParameter("API Key", "K", "Google Maps Platform API key. Or set an Environment Variable 'HERONGOOGLEAPIKEY' with your key as the string.", GH_ParamAccess.item, "");
             p.AddBooleanParameter("Run", "R", "If true, run and Download. If false, do nothing.", GH_ParamAccess.item, false);
         }
 
@@ -168,9 +168,17 @@ namespace Heron
             da.GetData(2, ref cacheFolder);
             if (!da.GetData(3, ref apiKey) || string.IsNullOrWhiteSpace(apiKey))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "API Key is required.");
-                SetOutputs(da, new List<string> { "Error: API Key is required." }, new List<string>(), new List<Rhino.Geometry.Mesh>(), new List<object>(), string.Empty);
-                return;
+                var envKey = System.Environment.GetEnvironmentVariable("HERONGOOGLEAPIKEY");
+                if (envKey is string && !string.IsNullOrWhiteSpace(envKey))
+                {
+                    apiKey = envKey;
+                }
+                else
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "API Key is required.");
+                    SetOutputs(da, new List<string> { "Error: API Key is required." }, new List<string>(), new List<Rhino.Geometry.Mesh>(), new List<object>(), string.Empty);
+                    return;
+                }
             }
             da.GetData(4, ref download);
 
