@@ -21,7 +21,21 @@ namespace Heron.Utilities.Google3DTiles
             _capBytes = capBytes <= 0 ? long.MaxValue : capBytes;
         }
 
+        // Backwards compatible Ensure (no progress)
         public List<TileDownloadResult> Ensure(List<PlannedTile> plan, bool download, out long totalBytes, out int skippedForCap)
+        {
+            return EnsureImpl(plan, download, out totalBytes, out skippedForCap, null);
+        }
+
+        // New overload expected by Google3DTilesPoi: progress callback as last parameter
+        // Signature matches attempt in Google3DTilesPoi: Ensure(plan, download, out totalBytes, out skippedForCap, progress)
+        public List<TileDownloadResult> Ensure(List<PlannedTile> plan, bool download, out long totalBytes, out int skippedForCap, Action<int, int, long, string> progress)
+        {
+            return EnsureImpl(plan, download, out totalBytes, out skippedForCap, progress);
+        }
+
+        // Core implementation. Reports progress via optional Action(doneCount, totalCount, bytesDownloaded, currentFile).
+        private List<TileDownloadResult> EnsureImpl(List<PlannedTile> plan, bool download, out long totalBytes, out int skippedForCap, Action<int, int, long, string> progress)
         {
             var results = new List<TileDownloadResult>();
             totalBytes = 0;
@@ -30,6 +44,9 @@ namespace Heron.Utilities.Google3DTiles
             int failedCount = 0;
             Exception firstError = null;
             string firstErrorUri = null;
+
+            if (plan == null) plan = new List<PlannedTile>();
+            int totalPlan = plan.Count;
 
             foreach (var t in plan)
             {
@@ -90,6 +107,16 @@ namespace Heron.Utilities.Google3DTiles
                         CacheMetadata = cacheMetadata
                     });
                     totalBytes += bytes;
+
+                    // Report progress: doneCount = number of tiles successfully added to results
+                    try
+                    {
+                        progress?.Invoke(results.Count, totalPlan, totalBytes, results.Count > 0 ? results[results.Count - 1].FilePath : string.Empty);
+                    }
+                    catch
+                    {
+                        // Swallow progress callback exceptions so downloads are not disrupted
+                    }
                 }
                 catch (Exception ex)
                 {
