@@ -67,6 +67,12 @@ namespace Heron.Utilities.Google3DTiles
         private readonly double _aoiEcefRadiusExpanded;
         private readonly Box _aoiEcefBox;
 
+        //
+        private readonly List<Point3d> _pois;
+        private readonly PointCloud _poisEcefCloud = new PointCloud();
+        private readonly double _maxSSE;
+        private readonly double _k;
+
         // Traversal budgets
         private const int TilePlanBudget = 20000;
         private const int JsonFetchBudget = 4000;
@@ -84,12 +90,40 @@ namespace Heron.Utilities.Google3DTiles
         // Stats
         public TilesetTraversalStats Stats { get; private set; } = new TilesetTraversalStats();
 
-        public TilesetWalker(GoogleTilesApi api, Polyline aoiModel, int maxLod, double relaxAoiMeters = 0.0)
+        /// <summary>
+        /// Sets up a tileset walker for the given AOI and max LOD. Optionally relaxes AOI for culling.
+        /// Set relaxAoiMeters > 0 to expand AOI by that many meters in all directions for culling purposes.
+        /// 
+        /// </summary>
+        /// <param name="api"></param>
+        /// <param name="aoiModel"></param>
+        /// <param name="maxLod"></param>
+        /// <param name="relaxAoiMeters"></param>
+        /// <param name="pois"></param>
+        /// <param name="maxSSE"></param>
+        /// <param name="k"></param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public TilesetWalker(GoogleTilesApi api, Polyline aoiModel, int maxLod, double relaxAoiMeters = 0.0, 
+            List<Point3d> pois = null, double maxSSE = 16.0, double k = 600.0)
         {
             _api = api;
             _maxLod = Math.Max(0, maxLod);
             _relaxAoiMeters = relaxAoiMeters < 0 ? 0 : relaxAoiMeters;
+            _pois = pois;
 
+            // Maxium Screen Space Error.
+            // Standard = 16, High Fidelity = 8, Cinematic = 1 to 2, Mobile Default = 32, Max Performance = 64
+            _maxSSE = Math.Max(1.0, maxSSE);
+
+            // Pseudo viewport factor; tune this.
+            // K is a constant depending on FOV and viewport height.
+            // Distance Influence: K is essentially the conversion factor that defines
+            // how many pixels a 1-meter object occupies when it is exactly 1 meter away from the camera. 
+            // 1080p at 60deg FOV ~= 935
+            // 4k at 60deg FOV ~= 1870
+            // 720p at 60deg FOV ~= 620
+            _k = Math.Max(100.0, k); 
+            
             // Convert AOI to ECEF polygon once
             try
             {
@@ -135,10 +169,28 @@ namespace Heron.Utilities.Google3DTiles
             double denom = Math.Pow(2.0, _maxLod <= 0 ? 1 : _maxLod);
             _targetLeafWidthMeters = (_aoiWidthMeters / denom);
             _targetLeafHeightMeters = (_aoiHeightMeters / denom);
-            
+
+            if (_pois != null)
+            {
+                try
+                {
+                    foreach (var poi in _pois)
+                    {
+                        var pt = GeoUtils.ModelToEcefPoint(poi);
+                        _poisEcefCloud.Add(pt);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        "Failed to convert POI to ECEF coordinates. This may be due to missing or invalid EarthAnchorPoint. " +
+                        "Ensure Rhino document is open and EarthAnchorPoint is properly set using Heron's SetEAP component.", ex);
+                }
+            }
+
         }
 
-        public List<PlannedTile> PlanDownloads(Tileset root)
+        public List<PlannedTile> PlanDownloads(Tileset root, bool usePoi = false)
         {
             var stats = new TilesetTraversalStats();
             stats.RelaxAoiMeters = _relaxAoiMeters;
@@ -181,6 +233,25 @@ namespace Heron.Utilities.Google3DTiles
                 nodeVisits++;
                 if (depth > stats.MaxDepthSeen) stats.MaxDepthSeen = depth;
 
+                // SSE-based pruning if using POI
+                double distance = 1.0;
+                double sse = 1.0;
+                bool withinMaxSse = false;
+                if (usePoi && _poisEcefCloud.IsValid && node.BoundingVolume != null)
+                {
+                    //PointCloud pc = new PointCloud();
+                    var bboxCenter = GetEcefBox(node.BoundingVolume.Box).Center;
+                    var cp = _poisEcefCloud.ClosestPoint(bboxCenter);
+                    distance = _poisEcefCloud[cp].Location.DistanceTo(bboxCenter);
+                    sse = (_k * node.GeometricError) / Math.Max(distance, 1.0); // prevent div by zero
+                    if (sse > _maxSSE)
+                    {
+                        stats.PrunedByAoi++;
+                        //continue;
+                    }
+                    else withinMaxSse = true;
+                }
+
                 // Spatial pruning (timed)
                 intersectStopwatch.Restart();
                 var intersects = IntersectsAoi(node.BoundingVolume);
@@ -198,7 +269,7 @@ namespace Heron.Utilities.Google3DTiles
                 bool isGlbContent = hasContent && IsGlbUri(uri);
 
                 // Leaf logic: only treat as leaf if no children OR reached max LOD and geometry is directly available (GLB)
-                bool treatAsLeaf = (!hasChildren) || (reachedLod && isGlbContent);
+                bool treatAsLeaf = (!hasChildren) || (reachedLod && isGlbContent) || (withinMaxSse && isGlbContent);
                 
                 
                 ///IS THIS NECESSARY?
