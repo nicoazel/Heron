@@ -53,7 +53,7 @@ namespace Heron
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
-            // Order requested: Boundary, LOD (Zoom), Folder, API Key, Download
+            // Order requested: POIs, Boundary, LOD, MaxSSE, K, Folder, API Key, Download
             string defaultCacheFolder;
             var rhinoDocPath = Rhino.RhinoDoc.ActiveDoc?.Path;
             if (!string.IsNullOrEmpty(rhinoDocPath))
