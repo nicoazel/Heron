@@ -9,6 +9,7 @@
     <RootNamespace>Heron</RootNamespace>
     <AssemblyName>Heron</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <LangVersion>12.0</LangVersion>
     <FileAlignment>512</FileAlignment>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
@@ -216,6 +217,7 @@
     <Compile Include="Components\GIS API\MapboxIsochrone.cs" />
     <Content Include="Resources\GoogleMaps_Logo_WithLightOutline_2x.png" />
     <None Include="Components\GIS API\MapboxIsochroneSpeckle.cs" />
+    <Compile Include="Components\GIS API\Google3DTilesPoiAsync.cs" />
     <Compile Include="Components\GIS API\SlippyRasterCustom.cs" />
     <Compile Include="Components\GIS API\Yelp.cs" />
     <Compile Include="Components\GIS Import-Export\ExportLAZ.cs" />
@@ -257,12 +259,14 @@
     <Compile Include="GdalConfiguration.cs" />
     <Compile Include="HeronConfiguration.cs" />
     <Compile Include="HeronSRS.cs" />
-    <Compile Include="SpeckleAsync\GH_AsyncComponent.cs" />
+    <Compile Include="SpeckleAsync\GH_AsyncComponentGoogle.cs" />
+    <Compile Include="SpeckleAsync\GH_AsyncComponentYelp.cs" />
     <Compile Include="Components\Utilities\HexToColor.cs" />
     <Compile Include="Components\Utilities\ColorToHex.cs" />
     <Compile Include="Convert.cs" />
     <Compile Include="Components\Deprecated\ExportVector_DEPRECATED20240729.cs" />
-    <Compile Include="SpeckleAsync\WorkerInstance.cs" />
+    <Compile Include="SpeckleAsync\WorkerInstanceGoogle.cs" />
+    <Compile Include="SpeckleAsync\WorkerInstanceYelp.cs" />
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -392,6 +396,7 @@
     <Error Condition="!Exists('..\packages\GDAL.Plugins.3.7.2\build\netstandard2.0\GDAL.Plugins.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\GDAL.Plugins.3.7.2\build\netstandard2.0\GDAL.Plugins.targets'))" />
     <Error Condition="!Exists('..\packages\RhinoCommon.8.12.24282.7001\build\net48\RhinoCommon.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\RhinoCommon.8.12.24282.7001\build\net48\RhinoCommon.targets'))" />
     <Error Condition="!Exists('..\packages\Grasshopper.8.12.24282.7001\build\net48\Grasshopper.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Grasshopper.8.12.24282.7001\build\net48\Grasshopper.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.NETFramework.ReferenceAssemblies.net48.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net48.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NETFramework.ReferenceAssemblies.net48.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net48.targets'))" />
   </Target>
   <Import Project="..\packages\GDAL.Native.3.7.2\build\netstandard2.0\GDAL.Native.targets" Condition="Exists('..\packages\GDAL.Native.3.7.2\build\netstandard2.0\GDAL.Native.targets')" />
   <Import Project="..\packages\GDAL.Plugins.3.7.2\build\netstandard2.0\GDAL.Plugins.targets" Condition="Exists('..\packages\GDAL.Plugins.3.7.2\build\netstandard2.0\GDAL.Plugins.targets')" />
@@ -416,4 +421,5 @@
     <Exec Command="powershell -Command &quot;Invoke-WebRequest -Uri '$(GeoidUrl)' -OutFile '$(TargetGtxPath)'&quot;" Condition="!Exists('$(TargetGtxPath)') And '$(OS)' == 'Windows_NT'" />
     <Exec Command="curl -LJo $(TargetGtxPath) $(GeoidUrl)" Condition="!Exists('$(TargetGtxPath)') And '$(OS)' != 'Windows_NT'" />
   </Target>
+  <Import Project="..\packages\Microsoft.NETFramework.ReferenceAssemblies.net48.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net48.targets" Condition="Exists('..\packages\Microsoft.NETFramework.ReferenceAssemblies.net48.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net48.targets')" />
 </Project>

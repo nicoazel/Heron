@@ -15,12 +15,13 @@ using GrasshopperAsyncComponent;
 using System.Windows.Forms;
 using Newtonsoft;
 using Newtonsoft.Json.Linq;
+using GrasshopperAsyncComponent.Yelp;
 
 
 
 namespace Heron
 {
-    public class Yelp : GH_AsyncComponent
+    public class Yelp : GH_AsyncComponentYelp
     {
         /// <summary>
         /// Initializes a new instance of the Yelp class.
@@ -235,7 +236,7 @@ namespace Heron
         }
     }
 
-    public class YelpWorker : WorkerInstance
+    public class YelpWorker : WorkerInstanceYelp
     {
         public YelpWorker() : base(null) { }
 
@@ -333,7 +334,7 @@ namespace Heron
             Done();
         }
 
-        public override WorkerInstance Duplicate() => new YelpWorker();
+        public override WorkerInstanceYelp Duplicate() => new YelpWorker();
 
         public override void GetData(IGH_DataAccess DA, GH_ComponentParamServer Params)
         {

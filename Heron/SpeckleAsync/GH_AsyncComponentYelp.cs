@@ -8,12 +8,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Timer = System.Timers.Timer;
 
-namespace GrasshopperAsyncComponent
+namespace GrasshopperAsyncComponent.Yelp
 {
   /// <summary>
   /// Inherit your component from this class to make all the async goodness available.
   /// </summary>
-  public abstract class GH_AsyncComponent : GH_Component
+  public abstract class GH_AsyncComponentYelp : GH_Component
   {
     public override Guid ComponentGuid => throw new Exception("ComponentGuid should be overriden in any descendant of GH_AsyncComponent!");
 
@@ -31,7 +31,7 @@ namespace GrasshopperAsyncComponent
 
     int SetData = 0;
 
-    public List<WorkerInstance> Workers;
+    public List<WorkerInstanceYelp> Workers;
 
     List<Task> Tasks;
 
@@ -40,14 +40,14 @@ namespace GrasshopperAsyncComponent
     /// <summary>
     /// Set this property inside the constructor of your derived component. 
     /// </summary>
-    public WorkerInstance BaseWorker { get; set; }
+    public WorkerInstanceYelp BaseWorker { get; set; }
 
     /// <summary>
     /// Optional: if you have opinions on how the default system task scheduler should treat your workers, set it here.
     /// </summary>
     public TaskCreationOptions? TaskCreationOptions { get; set; } = null;
 
-    protected GH_AsyncComponent(string name, string nickname, string description, string category, string subCategory) : base(name, nickname, description, category, subCategory)
+    protected GH_AsyncComponentYelp(string name, string nickname, string description, string category, string subCategory) : base(name, nickname, description, category, subCategory)
     {
 
       DisplayProgressTimer = new Timer(333) { AutoReset = false };
@@ -81,7 +81,7 @@ namespace GrasshopperAsyncComponent
 
       ProgressReports = new ConcurrentDictionary<string, double>();
 
-      Workers = new List<WorkerInstance>();
+      Workers = new List<WorkerInstanceYelp>();
       CancellationSources = new List<CancellationTokenSource>();
       Tasks = new List<Task>();
     }
