@@ -200,8 +200,8 @@ namespace Heron
     /// </summary>
     public class HeronVersion
     {
-        public const string AssemblyVer = "0.4.5";
-        public const string AssemblyFileVer = "0.4.5";
+        public const string AssemblyVer = "0.5.0";
+        public const string AssemblyFileVer = "0.5.0";
     }
 
     public class HeronLocation
@@ -209,7 +209,7 @@ namespace Heron
         public static string GetHeronFolder()
         {
             string heronFolder = "";
-            var asseblyFolders = Grasshopper.Folders.AssemblyFolders.Where(x => x.ToString().Contains("Heron"));    
+            var asseblyFolders = Grasshopper.Folders.AssemblyFolders.Where(x => x.ToString().IndexOf("Heron", StringComparison.OrdinalIgnoreCase) >= 0);    
             foreach (var folder in asseblyFolders)
             {
                 var ghas = Directory.GetFiles(folder.Folder, "*.gha", SearchOption.AllDirectories);
