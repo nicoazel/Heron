@@ -198,7 +198,7 @@ namespace Heron.Utilities.Google3DTiles
         /// </returns>
         public static (double lonDeg, double latDeg, double h) EcefToWgs84Gdal(Point3d ecef)
         {
-            if (_ecefToLatLonHeightTransform == null) SetSpatialReferences();
+            //if (_ecefToLatLonHeightTransform == null) SetSpatialReferences();
 
             double[] point = new double[] { ecef.X, ecef.Y, ecef.Z };
             _ecefToLatLonHeightTransform.TransformPoint(point);
@@ -217,7 +217,7 @@ namespace Heron.Utilities.Google3DTiles
         /// </summary>
         public static Point3d Wgs84ToEcefGdal(double lonDeg, double latDeg, double hMeters)
         {
-            if (_latLonHeightToEcefTransform == null) SetSpatialReferences();
+            //if (_latLonHeightToEcefTransform == null) SetSpatialReferences();
 
             double[] point = new double[] { lonDeg, latDeg, hMeters };
             _latLonHeightToEcefTransform.TransformPoint(point);
@@ -232,7 +232,7 @@ namespace Heron.Utilities.Google3DTiles
 
         public static Point3d EcefToModelPoint(Point3d ecef)
         {
-            if (_ecefToGeoidTransform == null || _geoidToHeronSrsTransform == null) SetSpatialReferences();
+            //if (_ecefToGeoidTransform == null || _geoidToHeronSrsTransform == null) SetSpatialReferences();
 
             double[] wgsPoint = new double[] { ecef.X, ecef.Y, ecef.Z };
             _ecefToGeoidTransform.TransformPoint(wgsPoint);
@@ -246,7 +246,7 @@ namespace Heron.Utilities.Google3DTiles
 
         public static Point3d ModelToEcefPoint(Point3d modelPoint)
         {
-            if (_heronSrsToEcefTransform == null || _modelToHeronSrsTransform == null) SetSpatialReferences();
+            //if (_heronSrsToEcefTransform == null || _modelToHeronSrsTransform == null) SetSpatialReferences();
 
             var wgsPoint = new Point3d(modelPoint.X, modelPoint.Y, modelPoint.Z);
             wgsPoint.Transform(_modelToHeronSrsTransform);
